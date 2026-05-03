@@ -17,7 +17,7 @@ st.set_page_config(page_title="AI自動鑑定システム", page_icon="🔮", la
 
 # --- パスワード設定 ---
 # ここにお好きなパスワードを設定してください。納品時に相手に教える鍵になります。
-APP_PASSWORD = "uranai_shuuhei_2026"
+APP_PASSWORD = "123456789"
 
 # サイドバー（設定画面）
 st.sidebar.header("⚙️ システムログイン")
