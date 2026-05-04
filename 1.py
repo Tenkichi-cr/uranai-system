@@ -16,7 +16,8 @@ import textwrap
 st.set_page_config(page_title="AI自動鑑定システム", page_icon="🔮", layout="centered")
 
 # --- パスワード設定 ---
-APP_PASSWORD = "123456789"
+# ※納品時にここをご自身のパスワードに変更していた場合は、再度書き換えてください。
+APP_PASSWORD = "uranai_shuuhei_2026"
 
 # サイドバー（設定画面）
 st.sidebar.header("⚙️ システムログイン")
@@ -53,7 +54,7 @@ with st.form("input_form"):
     consultation = st.text_area("ご相談内容", height=150)
     submit_button = st.form_submit_button("✨ 鑑定書を生成する")
 
-# 各占術のロジック（四柱推命を復活）
+# 各占術のロジック
 def calculate_numerology(dob):
     total = sum(int(d) for d in dob.strftime("%Y%m%d"))
     while total > 9 and total not in [11, 22, 33]:
@@ -86,7 +87,7 @@ def setup_font():
             return None
     return font_path
 
-# PDF生成
+# PDF生成（改行の不具合を修正）
 def create_pdf(text, user_name):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -102,9 +103,13 @@ def create_pdf(text, user_name):
     text_object = c.beginText(50, height - 100)
     text_object.setLeading(16)
     
-    # 記号を除外して純粋なテキストのみをPDFに描画
     clean_text = text.replace("#", "").replace("**", "").replace("*", "")
     for line in clean_text.split("\n"):
+        # 空行（段落の間のスペース）の場合は、そのまま1行分改行する処理を追加
+        if line.strip() == "":
+            text_object.textLine("")
+            continue
+            
         wrapped = textwrap.wrap(line, width=40)
         for w_line in wrapped:
             if text_object.getY() < 50:
@@ -114,6 +119,7 @@ def create_pdf(text, user_name):
                 text_object = c.beginText(50, height - 50)
                 text_object.setLeading(16)
             text_object.textLine(w_line)
+            
     c.drawText(text_object)
     c.showPage()
     c.save()
@@ -129,7 +135,6 @@ if submit_button:
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-2.5-flash')
                 
-                # 選択された占術データを確実に構築する
                 results = f"【占術データ】\n"
                 if use_four_pillars: 
                     results += f"・四柱推命: {calculate_four_pillars()}\n"
@@ -138,7 +143,6 @@ if submit_button:
                 if use_tarot: 
                     results += f"・タロット: {', '.join(draw_tarot())}\n"
 
-                # 記号禁止の命令を強化したプロンプト
                 prompt = f"""
                 あなたはプロの熟練鑑定士です。以下の相談者情報と占術データに基づき、最高品質の長文鑑定書を作成してください。
                 
@@ -156,7 +160,6 @@ if submit_button:
                 
                 response = model.generate_content(prompt)
                 
-                # 画面表示用にも記号を消去
                 display_text = response.text.replace("#", "").replace("**", "").replace("*", "")
                 st.text_area("鑑定結果", display_text, height=300)
                 
