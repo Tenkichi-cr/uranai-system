@@ -16,7 +16,7 @@ import textwrap
 st.set_page_config(page_title="AI自動鑑定システム", page_icon="🔮", layout="centered")
 
 # --- パスワード設定 ---
-APP_PASSWORD = "uranai_shuuhei_2026"
+APP_PASSWORD = "123456789"
 
 # サイドバー（設定画面）
 st.sidebar.header("⚙️ システムログイン")
