@@ -10,13 +10,12 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-import textwrap
 
 # ページ全体の設定
 st.set_page_config(page_title="AI自動鑑定システム", page_icon="🔮", layout="centered")
 
 # --- パスワード設定 ---
-# ※納品時にここをご自身のパスワードに変更していた場合は、再度書き換えてください。
+# ※納品時に設定したパスワード（合言葉）に書き換えてください。
 APP_PASSWORD = "123456789"
 
 # サイドバー（設定画面）
@@ -87,7 +86,28 @@ def setup_font():
             return None
     return font_path
 
-# PDF生成（改行の不具合を修正）
+# 日本語専用の美しいテキスト折り返し処理（禁則処理付き）
+def wrap_japanese_text(text, width=40):
+    lines = []
+    while text:
+        if len(text) <= width:
+            lines.append(text)
+            break
+        
+        line = text[:width]
+        remainder = text[width:]
+        
+        # 句読点が行の先頭に来ないようにする処理（禁則処理）
+        kinsoku_chars = "、。，．！？)]}〉》」』】〕"
+        if remainder and remainder[0] in kinsoku_chars:
+            line += remainder[0]
+            remainder = remainder[1:]
+            
+        lines.append(line)
+        text = remainder
+    return lines
+
+# PDF生成（改行・文字抜け不具合を完全修正）
 def create_pdf(text, user_name):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -105,12 +125,13 @@ def create_pdf(text, user_name):
     
     clean_text = text.replace("#", "").replace("**", "").replace("*", "")
     for line in clean_text.split("\n"):
-        # 空行（段落の間のスペース）の場合は、そのまま1行分改行する処理を追加
+        # 空行（段落の間のスペース）を保持する
         if line.strip() == "":
             text_object.textLine("")
             continue
             
-        wrapped = textwrap.wrap(line, width=40)
+        # 英語のtextwrapをやめて、自作の日本語専用処理を使う
+        wrapped = wrap_japanese_text(line, 40)
         for w_line in wrapped:
             if text_object.getY() < 50:
                 c.drawText(text_object)
