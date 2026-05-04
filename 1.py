@@ -16,20 +16,17 @@ import textwrap
 st.set_page_config(page_title="AI自動鑑定システム", page_icon="🔮", layout="centered")
 
 # --- パスワード設定 ---
-# ここにお好きなパスワードを設定してください。納品時に相手に教える鍵になります。
-APP_PASSWORD = "123456789"
+APP_PASSWORD = "uranai_shuuhei_2026"
 
 # サイドバー（設定画面）
 st.sidebar.header("⚙️ システムログイン")
 input_password = st.sidebar.text_input("システムパスワードを入力", type="password")
 
-# パスワードチェック
 if input_password != APP_PASSWORD:
     st.warning("正しいパスワードを入力してください。")
-    st.info("※このシステムは許可されたユーザーのみが利用可能です。")
-    st.stop() # パスワードが違う場合はここで処理を止める
+    st.stop()
 
-# --- 以下、ログイン成功時のみ表示される中身 ---
+# --- ログイン成功時 ---
 st.sidebar.markdown("---")
 st.sidebar.header("🔧 API・占術設定")
 api_key = st.sidebar.text_input("Gemini APIキーを入力してください", type="password")
@@ -50,13 +47,13 @@ with st.form("input_form"):
         user_name = st.text_input("相談者のお名前")
         birth_date = st.date_input("生年月日", min_value=datetime(1920, 1, 1))
     with col2:
-        gender = st.selectbox("性性", ["女性", "男性", "その他"])
+        gender = st.selectbox("性別", ["女性", "男性", "その他"])
         location = st.text_input("出生地")
     
     consultation = st.text_area("ご相談内容", height=150)
     submit_button = st.form_submit_button("✨ 鑑定書を生成する")
 
-# 各占術の計算ロジック（簡易版）
+# 各占術のロジック（四柱推命を復活）
 def calculate_numerology(dob):
     total = sum(int(d) for d in dob.strftime("%Y%m%d"))
     while total > 9 and total not in [11, 22, 33]:
@@ -64,10 +61,14 @@ def calculate_numerology(dob):
     return total
 
 def draw_tarot():
-    cards = ["魔術師", "女教皇", "皇帝", "運命の輪", "太陽", "世界"]
-    return [f"{c}({random.choice(['正', '逆'])})" for c in random.sample(cards, 3)]
+    cards = ["魔術師", "女教皇", "皇帝", "運命の輪", "太陽", "世界", "星", "月", "恋人", "隠者"]
+    return [f"{c}({random.choice(['正位置', '逆位置'])})" for c in random.sample(cards, 3)]
 
-# フォント自動セットアップ機能
+def calculate_four_pillars():
+    elements = ["木", "火", "土", "金", "水"]
+    return f"日干：{random.choice(elements)}の性質"
+
+# フォント自動セットアップ
 def setup_font():
     font_path = "ipaexg.ttf"
     if not os.path.exists(font_path):
@@ -100,7 +101,10 @@ def create_pdf(text, user_name):
     c.setFont('IPAexGothic', 11)
     text_object = c.beginText(50, height - 100)
     text_object.setLeading(16)
-    for line in text.split("\n"):
+    
+    # 記号を除外して純粋なテキストのみをPDFに描画
+    clean_text = text.replace("#", "").replace("**", "").replace("*", "")
+    for line in clean_text.split("\n"):
         wrapped = textwrap.wrap(line, width=40)
         for w_line in wrapped:
             if text_object.getY() < 50:
@@ -124,13 +128,39 @@ if submit_button:
             try:
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-2.5-flash')
-                results = f"【占術】"
-                if use_numerology: results += f" 数秘:{calculate_numerology(birth_date)}"
-                if use_tarot: results += f" タロット:{draw_tarot()}"
-                prompt = f"{user_name}様への鑑定書を「{tone}」で作成。相談:{consultation} データ:{results}"
+                
+                # 選択された占術データを確実に構築する
+                results = f"【占術データ】\n"
+                if use_four_pillars: 
+                    results += f"・四柱推命: {calculate_four_pillars()}\n"
+                if use_numerology: 
+                    results += f"・数秘術: ライフパスナンバー {calculate_numerology(birth_date)}\n"
+                if use_tarot: 
+                    results += f"・タロット: {', '.join(draw_tarot())}\n"
+
+                # 記号禁止の命令を強化したプロンプト
+                prompt = f"""
+                あなたはプロの熟練鑑定士です。以下の相談者情報と占術データに基づき、最高品質の長文鑑定書を作成してください。
+                
+                【相談者情報】
+                名前: {user_name}
+                相談内容: {consultation}
+                
+                {results}
+                
+                【絶対厳守の執筆条件】
+                1. 指定された雰囲気：「{tone}」のトーンで一貫して記述すること。
+                2. 提供された「すべての占術データ」に必ず言及し、結果を自然に文中に織り交ぜて解説すること。
+                3. 「#」や「*」などのマークダウン記法は【一切使用禁止】です。箇条書きや見出しの記号も使わず、プレーンな美しい日本語の段落分けのみで出力してください。
+                """
+                
                 response = model.generate_content(prompt)
-                st.text_area("鑑定結果", response.text, height=300)
-                pdf_buffer = create_pdf(response.text, user_name)
+                
+                # 画面表示用にも記号を消去
+                display_text = response.text.replace("#", "").replace("**", "").replace("*", "")
+                st.text_area("鑑定結果", display_text, height=300)
+                
+                pdf_buffer = create_pdf(display_text, user_name)
                 if pdf_buffer:
                     st.download_button("📄 PDFをダウンロード", pdf_buffer, f"{user_name}_鑑定書.pdf", "application/pdf")
             except Exception as e:
